@@ -26,18 +26,19 @@
 // SOFTWARE.
 //************************************************************************************************
 
+#load "experimental/array.bl"
 #load "std/memory.bl"
 #load "std/print.bl"
 #load "std/file.bl"
+#load "std/debug.bl"
+#load "std/utils.bl"
 
 Mesh :: struct {
     c: []v4;
     v: []v3;
     n: []v3;
     uv: []v2;
-
     indices: []u32;
-    data: *u8;
 }
 
 MESH_COLOR_FLAG : u32 : 1;
@@ -51,23 +52,251 @@ MeshHeader :: struct {
     flags: u32;
 }
 
-OUT_FILE :: "test.mesh";
+TEST_IN_FILE :: "test.obj";
+TEST_OUT_FILE :: "test.mesh";
+TEST_VERT_COUNT : u32 : 10;
+
+tmp_color : *Array = null; 
+tmp_vert : *Array = null; 
+tmp_norm: *Array = null; 
+tmp_uv : *Array = null; 
 
 main :: fn () s32 {
-    buffer_size ::sizeof(MeshHeader);
+    in_file :: TEST_IN_FILE;
+    out_file :: TEST_OUT_FILE;
+
+    tmp_color = array_new(v4);
+    tmp_vert = array_new(v3);
+    tmp_norm = array_new(v3);
+    tmp_uv = array_new(v2);
+    defer array_delete(tmp_color);
+    defer array_delete(tmp_vert);
+    defer array_delete(tmp_norm);
+    defer array_delete(tmp_uv);
+
+    color :: array_new(v4);
+    vert :: array_new(v3);
+    norm :: array_new(v3);
+    uv :: array_new(v2);
+    defer array_delete(color);
+    defer array_delete(vert);
+    defer array_delete(norm);
+    defer array_delete(uv);
+
+    load_obj(in_file, color, vert, norm, uv);
+    
+    buffer_size :: sizeof(MeshHeader) + TEST_VERT_COUNT * sizeof(v4);
     buffer := mem_alloc(buffer_size); 
     defer mem_free(buffer);
 
     header := cast(*MeshHeader) buffer;
-    header.vc = 10;
-    header.ic = 20;
-    header.flags = MESH_COLOR_FLAG | MESH_NORM_FLAG;
+    header.vc = TEST_VERT_COUNT;
+    header.ic = 0;
+    header.flags = MESH_COLOR_FLAG;
 
-    file :: file_open(OUT_FILE, FileOpenModes.Write, FileOpenModes.Binary);
-    defer file_close(file);
+    // test data
+    data_begin_ptr :: ptr_shift_bytes(buffer, sizeof(MeshHeader));
+    mesh := {:Mesh: 0};
+
+    mesh.c.len = auto TEST_VERT_COUNT;
+    mesh.c.ptr = auto data_begin_ptr; 
+
+    loop i := 0; i < auto TEST_VERT_COUNT; i += 1 {
+        mesh.c[i] = {:v4: auto i, auto i + 1, auto i + 2, auto i + 3};
+    }
+
+    // write to the file
+    file :: file_open(out_file, FileOpenModes.Write, FileOpenModes.Binary);
+    //defer file_close(file);
 
     w :: file_write_binary(file, auto buffer, buffer_size);
     print("Written % bytes.\n", w);
+    file_close(file);
+
+    //test_load(out_file);
 
     return 0;
+}
+
+load_obj :: fn (filename: string,
+                color: *Array,
+                vert: *Array,
+                norm: *Array,
+                uv: *Array)
+{
+    // cleanup buffers
+    array_clear(color);
+    array_clear(vert);
+    array_clear(norm);
+    array_clear(uv);
+    array_clear(tmp_color);
+    array_clear(tmp_vert);
+    array_clear(tmp_norm);
+    array_clear(tmp_uv);
+
+    file :: file_open(filename, FileOpenModes.Read);
+    defer file_close(file);
+
+    if file == null {
+        print_err("File '%' not found!", filename);
+        return;
+    }
+
+    i := 0;
+    s :: file_read_all(file);
+    defer string_delete(s);
+
+    dup := s;
+    fc := 0;
+    
+    loop dup.len > 0 {
+        if string_compare_n(dup, "mtllib", 6) {
+            // material lib
+            consume_n(&dup, 6);
+
+        } else if string_compare_n(dup, "vn", 2) {
+            // normal
+            consume_n(&dup, 2);
+            consume_spaces(&dup);
+
+            array_push(tmp_norm, consume_v3(&dup));
+            
+        } else if string_compare_n(dup, "vt", 2) {
+            // UV 
+            consume_n(&dup, 2);
+            consume_spaces(&dup);
+
+            array_push(tmp_uv, consume_v2(&dup));
+
+        } else if string_compare_n(dup, "f", 1) {
+            // face
+            consume_n(&dup, 2);
+            fc += 1;
+
+        } else if string_compare_n(dup, "v", 1) {
+            // vertex
+            consume_n(&dup, 1);
+            consume_spaces(&dup);
+
+            array_push(tmp_vert, consume_v3(&dup));
+        }
+
+        // eat rest of the line
+        consume_line(&dup);
+    }
+
+    print("fc: %, vc: %, nc: %, uvc: %\n", fc, tmp_vert.len, tmp_norm.len, tmp_uv.len);
+}
+
+consume_line :: fn (s: *string) {
+    loop s.len > 0 {
+        c :: consume_char(s);
+        if c == '\n' { break; }
+    }
+}
+
+consume_spaces :: fn (s: *string) {
+    loop s.len > 0 {
+        c :: (^s)[0];
+        if c != ' ' { break; }
+        consume_char(s);
+    }
+}
+
+consume_char :: fn (s: *string) u8 #inline {
+    c :: (^s)[0];
+    if s.len > 1 { s.ptr = &(^s)[1]; }
+    s.len -= 1;
+
+    return c;
+}
+
+consume_n :: fn (s: *string, n: s32) #inline {
+    loop i := 0; s.len > 0 && i < n; i += 1 {
+        consume_char(s);
+    }
+}
+
+consume_v3 :: fn (s: *string) v3 {
+    v := {:v3: 0};
+    
+    v.x = consume_float(s);
+    consume_spaces(s);
+    v.y = consume_float(s);
+    consume_spaces(s);
+    v.z = consume_float(s);
+    
+    return v;
+}
+
+consume_v2 :: fn (s: *string) v2 {
+    v := {:v2: 0};
+    
+    v.x = consume_float(s);
+    consume_spaces(s);
+    v.y = consume_float(s);
+    
+    return v;
+}
+
+consume_float :: fn (s: *string) f32 {
+    n := 0;
+    e := 1;
+    is_negative := false;
+    is_after_comma := false;
+
+    loop s.len > 0 {
+        c :: (^s)[0];
+        if c == '-' {
+            is_negative = true;
+        } else if c == '.' {
+            is_after_comma = true;
+        } else if c >= '0' && c <= '9' {
+            n = n * 10 + (auto c - '0');
+            if is_after_comma {
+                e *= 10;
+            }
+        } else {
+            break;
+        }
+
+        consume_char(s);
+    }
+
+    v := cast(f32) n / cast(f32) e; 
+    if is_negative { v = -v; } 
+    return v;
+}
+
+test_load :: fn (filename: string) {
+    print("\n--- TEST LOAD BEGIN ---\n");
+    file :: file_open(filename, FileOpenModes.Read, FileOpenModes.Binary);
+    defer file_close(file);
+
+    size :: file_get_size_bytes(file);
+    if size == 0 {
+        print_warn("Invalid file size of '%'!", filename);
+        return;
+    }
+
+    buffer :: mem_alloc(size);
+    defer mem_free(buffer);
+                   
+    r :: file_read_all_binary(file, buffer, size);
+    print("Loaded % bytes from '%'.\n", r, filename);
+
+    header :: cast(*MeshHeader) buffer;
+    print("%\n", ^header);
+
+    data_begin_ptr :: ptr_shift_bytes(buffer, sizeof(MeshHeader));
+    mesh := {:Mesh: 0};
+
+    mesh.c.len = auto header.vc;
+    mesh.c.ptr = auto data_begin_ptr; 
+
+    loop i := 0; i < auto header.vc; i += 1 {
+        print("%\n", mesh.c[i]);
+    }
+
+    print("--- TEST LOAD END ---\n\n");
 }
