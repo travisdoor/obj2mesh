@@ -56,10 +56,17 @@ TEST_IN_FILE :: "test.obj";
 TEST_OUT_FILE :: "test.mesh";
 TEST_VERT_COUNT : u32 : 10;
 
+color : *Array = null; 
+vert : *Array = null; 
+norm: *Array = null; 
+uv : *Array = null; 
+indices : *Array = null; 
 tmp_color : *Array = null; 
 tmp_vert : *Array = null; 
 tmp_norm: *Array = null; 
 tmp_uv : *Array = null; 
+
+current_line := 0;
 
 main :: fn () s32 {
     in_file :: TEST_IN_FILE;
@@ -74,16 +81,21 @@ main :: fn () s32 {
     defer array_delete(tmp_norm);
     defer array_delete(tmp_uv);
 
-    color :: array_new(v4);
-    vert :: array_new(v3);
-    norm :: array_new(v3);
-    uv :: array_new(v2);
+    color = array_new(v4);
+    vert = array_new(v3);
+    norm = array_new(v3);
+    uv = array_new(v2);
+    indices = array_new(u32);
     defer array_delete(color);
     defer array_delete(vert);
     defer array_delete(norm);
     defer array_delete(uv);
+    defer array_delete(indices);
 
-    load_obj(in_file, color, vert, norm, uv);
+    if !load_obj(in_file) {
+        print_err("There were errors during processing file '%'.\n", in_file);
+        return 1;
+    }
     
     buffer_size :: sizeof(MeshHeader) + TEST_VERT_COUNT * sizeof(v4);
     buffer := mem_alloc(buffer_size); 
@@ -118,13 +130,9 @@ main :: fn () s32 {
     return 0;
 }
 
-load_obj :: fn (filename: string,
-                color: *Array,
-                vert: *Array,
-                norm: *Array,
-                uv: *Array)
-{
+load_obj :: fn (filename: string) bool {
     // cleanup buffers
+    current_line = 0;
     array_clear(color);
     array_clear(vert);
     array_clear(norm);
@@ -139,7 +147,7 @@ load_obj :: fn (filename: string,
 
     if file == null {
         print_err("File '%' not found!", filename);
-        return;
+        return false;
     }
 
     i := 0;
@@ -147,9 +155,9 @@ load_obj :: fn (filename: string,
     defer string_delete(s);
 
     dup := s;
-    fc := 0;
     
     loop dup.len > 0 {
+        current_line += 1;
         if string_compare_n(dup, "mtllib", 6) {
             // material lib
             consume_n(&dup, 6);
@@ -170,8 +178,11 @@ load_obj :: fn (filename: string,
 
         } else if string_compare_n(dup, "f", 1) {
             // face
-            consume_n(&dup, 2);
-            fc += 1;
+            consume_n(&dup, 1);
+            consume_spaces(&dup);
+            if !consume_face(&dup) {
+                return false;
+            }
 
         } else if string_compare_n(dup, "v", 1) {
             // vertex
@@ -185,7 +196,8 @@ load_obj :: fn (filename: string,
         consume_line(&dup);
     }
 
-    print("fc: %, vc: %, nc: %, uvc: %\n", fc, tmp_vert.len, tmp_norm.len, tmp_uv.len);
+    print("vc: %, nc: %, uvc: %; i: %\n", vert.len, norm.len, uv.len, indices.len);
+    return true;
 }
 
 consume_line :: fn (s: *string) {
@@ -217,14 +229,90 @@ consume_n :: fn (s: *string, n: s32) #inline {
     }
 }
 
+consume_face :: fn (s: *string) bool {
+    group := 0; // 0 - vertex, 1 - UV, 2 - normal
+    index : u32 = 0;
+    loop s.len > 0 {
+        c :: (^s)[0];
+        if c == '\n' { break; }
+        if c == ' ' { break; }
+        if c == '/' {
+            consume_char(s);
+            continue;
+        }
+
+        i := consume_u32(s);
+        if i == 0 {
+            print_err("%: Invalid face member id.", current_line);
+            return false;
+        }
+
+        // We need this as array index later.
+        i -= 1;
+        
+        if group == 0 {
+            // vertex
+            if i >= auto tmp_vert.len {
+                print_err("%: Vertex face id out of range!", current_line);
+                return false;
+            }
+
+            v :: cast(*v3) array_at(tmp_vert, auto i);
+            if v == null { panic(); }
+            
+            index = auto vert.len;
+            array_push(vert, ^v);
+        } else if group == 1 {
+            // UV
+            if i >= auto tmp_uv.len {
+                print_err("%: UV face id out of range!", current_line);
+                return false;
+            }
+
+            v :: cast(*v2) array_at(tmp_uv, auto i);
+            if v == null { panic(); }
+            
+            index = auto uv.len;
+            array_push(uv, ^v);
+        } else if group == 2 {
+            // normal
+            if i >= auto tmp_norm.len {
+                print_err("%: Normal face id out of range!", current_line);
+                return false;
+            }
+
+            v :: cast(*v3) array_at(tmp_norm, auto i);
+            if v == null { panic(); }
+            
+            index = auto norm.len;
+            array_push(norm, ^v);
+        } else {
+            print_err("%: Unexpected face group member!", current_line);
+            return false;
+        }
+        
+        group += 1;
+    }
+
+    array_push(indices, index);
+
+    sum :: vert.len + norm.len + uv.len + indices.len; 
+    if sum % vert.len != 0 {
+        print_err("%: Triangle data malformed!", current_line);
+        return false;
+    }
+
+    return true;
+}
+
 consume_v3 :: fn (s: *string) v3 {
     v := {:v3: 0};
     
-    v.x = consume_float(s);
+    v.x = consume_f32(s);
     consume_spaces(s);
-    v.y = consume_float(s);
+    v.y = consume_f32(s);
     consume_spaces(s);
-    v.z = consume_float(s);
+    v.z = consume_f32(s);
     
     return v;
 }
@@ -232,14 +320,14 @@ consume_v3 :: fn (s: *string) v3 {
 consume_v2 :: fn (s: *string) v2 {
     v := {:v2: 0};
     
-    v.x = consume_float(s);
+    v.x = consume_f32(s);
     consume_spaces(s);
-    v.y = consume_float(s);
+    v.y = consume_f32(s);
     
     return v;
 }
 
-consume_float :: fn (s: *string) f32 {
+consume_f32 :: fn (s: *string) f32 {
     n := 0;
     e := 1;
     is_negative := false;
@@ -266,6 +354,22 @@ consume_float :: fn (s: *string) f32 {
     v := cast(f32) n / cast(f32) e; 
     if is_negative { v = -v; } 
     return v;
+}
+
+consume_u32 :: fn (s: *string) u32 {
+    n : u32 = 0;
+    loop s.len > 0 {
+        c :: (^s)[0];
+        if c >= '0' && c <= '9' {
+            n = n * 10 + (auto c - '0');
+        } else {
+            break;
+        }
+
+        consume_char(s);
+    }
+
+    return n;
 }
 
 test_load :: fn (filename: string) {
