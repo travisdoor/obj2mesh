@@ -33,14 +33,6 @@
 #load "std/debug.bl"
 #load "std/utils.bl"
 
-Mesh :: struct {
-    c: []v4;
-    v: []v3;
-    n: []v3;
-    uv: []v2;
-    indices: []u32;
-}
-
 MESH_COLOR_FLAG : u32 : 1;
 MESH_VERT_FLAG  : u32 : 2;
 MESH_NORM_FLAG  : u32 : 4;
@@ -92,29 +84,63 @@ main :: fn () s32 {
     defer array_delete(uv);
     defer array_delete(indices);
 
+    print("Converting '%'.\n", in_file);
     if !load_obj(in_file) {
         print_err("There were errors during processing file '%'.\n", in_file);
         return 1;
     }
-    
-    buffer_size :: sizeof(MeshHeader) + TEST_VERT_COUNT * sizeof(v4);
+
+    buffer_size :: sizeof(MeshHeader) +
+        (cast(usize) color.len) * sizeof(v4) +
+        (cast(usize) vert.len) * sizeof(v3) +
+        (cast(usize) norm.len) * sizeof(v3) +
+        (cast(usize) uv.len) * sizeof(v2) +
+        (cast(usize) indices.len) * sizeof(u32);
+
     buffer := mem_alloc(buffer_size); 
     defer mem_free(buffer);
 
     header := cast(*MeshHeader) buffer;
-    header.vc = TEST_VERT_COUNT;
-    header.ic = 0;
-    header.flags = MESH_COLOR_FLAG;
+    header.vc = auto vert.len;
+    header.ic = auto indices.len;
+    header.flags = 0;
+    if color.len > 0 { header.flags = header.flags | MESH_COLOR_FLAG; }
+    if vert.len > 0 { header.flags = header.flags | MESH_VERT_FLAG; }
+    if norm.len > 0 { header.flags = header.flags | MESH_NORM_FLAG; }
+    if uv.len > 0 { header.flags = header.flags | MESH_UV_FLAG; }
 
-    // test data
-    data_begin_ptr :: ptr_shift_bytes(buffer, sizeof(MeshHeader));
-    mesh := {:Mesh: 0};
+    // build content
+    ptr := ptr_shift_bytes(buffer, sizeof(MeshHeader));
 
-    mesh.c.len = auto TEST_VERT_COUNT;
-    mesh.c.ptr = auto data_begin_ptr; 
+    if is_flag_u32(header.flags, MESH_COLOR_FLAG) {
+        size_bytes :: (cast(usize) color.len) * sizeof(v4);
+        mem_copy(ptr, color.ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
 
-    loop i := 0; i < auto TEST_VERT_COUNT; i += 1 {
-        mesh.c[i] = {:v4: auto i, auto i + 1, auto i + 2, auto i + 3};
+    if is_flag_u32(header.flags, MESH_VERT_FLAG) {
+        size_bytes :: (cast(usize) vert.len) * sizeof(v3);
+        mem_copy(ptr, vert.ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    if is_flag_u32(header.flags, MESH_NORM_FLAG) {
+        size_bytes :: (cast(usize) norm.len) * sizeof(v3);
+        mem_copy(ptr, norm.ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    if is_flag_u32(header.flags, MESH_UV_FLAG) {
+        size_bytes :: (cast(usize) uv.len) * sizeof(v2);
+        mem_copy(ptr, uv.ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    {
+        if indices.len <= 0 { panic("Invalid indices!"); }
+        size_bytes :: (cast(usize) indices.len) * sizeof(u32);
+        mem_copy(ptr, indices.ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
     }
 
     // write to the file
@@ -122,10 +148,10 @@ main :: fn () s32 {
     //defer file_close(file);
 
     w :: file_write_binary(file, auto buffer, buffer_size);
-    print("Written % bytes.\n", w);
+    print("Written % kB to '%'.\n", (cast(f32) w) / 1024.f, out_file);
     file_close(file);
 
-    //test_load(out_file);
+    test_load(out_file);
 
     return 0;
 }
@@ -373,6 +399,14 @@ consume_u32 :: fn (s: *string) u32 {
 }
 
 test_load :: fn (filename: string) {
+    Mesh :: struct {
+        c: []v4;
+        v: []v3;
+        n: []v3;
+        uv: []v2;
+        indices: []u32;
+    };
+
     print("\n--- TEST LOAD BEGIN ---\n");
     file :: file_open(filename, FileOpenModes.Read, FileOpenModes.Binary);
     defer file_close(file);
@@ -389,18 +423,49 @@ test_load :: fn (filename: string) {
     r :: file_read_all_binary(file, buffer, size);
     print("Loaded % bytes from '%'.\n", r, filename);
 
+    mesh := {:Mesh: 0};
     header :: cast(*MeshHeader) buffer;
     print("%\n", ^header);
 
-    data_begin_ptr :: ptr_shift_bytes(buffer, sizeof(MeshHeader));
-    mesh := {:Mesh: 0};
+    ptr := ptr_shift_bytes(buffer, sizeof(MeshHeader));
 
-    mesh.c.len = auto header.vc;
-    mesh.c.ptr = auto data_begin_ptr; 
-
-    loop i := 0; i < auto header.vc; i += 1 {
-        print("%\n", mesh.c[i]);
+    if is_flag_u32(header.flags, MESH_COLOR_FLAG) {
+        print_log("A");
+        size_bytes :: header.vc * sizeof(v4);
+        mem_copy(auto mesh.c.ptr, ptr, size_bytes);
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+        mesh.c.len = auto header.vc;
     }
+
+    if is_flag_u32(header.flags, MESH_VERT_FLAG) {
+        size_bytes :: header.vc * sizeof(v3);
+        mesh.v.ptr = auto ptr;
+        mesh.v.len = auto header.vc;
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    if is_flag_u32(header.flags, MESH_NORM_FLAG) {
+        size_bytes :: header.vc * sizeof(v3);
+        mesh.n.ptr = auto ptr;
+        mesh.n.len = auto header.vc;
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    if is_flag_u32(header.flags, MESH_UV_FLAG) {
+        size_bytes :: header.vc * sizeof(v2);
+        mesh.uv.ptr = auto ptr;
+        mesh.uv.len = auto header.vc;
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+    {
+        size_bytes :: header.vc * sizeof(u32);
+        mesh.indices.ptr = auto ptr;
+        mesh.indices.len = auto header.vc;
+        ptr = ptr_shift_bytes(ptr, size_bytes);
+    }
+
+
 
     print("--- TEST LOAD END ---\n\n");
 }
