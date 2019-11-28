@@ -1,0 +1,52 @@
+//************************************************************************************************
+// obj2mesh
+//
+// File:   o2m_types.bl
+// Author: Martin Dorazil
+// Date:   21/11/19
+//
+// Copyright 2019 Martin Dorazil
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//************************************************************************************************
+
+O2M_VERSION_PATCH : u32 : 0;
+O2M_VERSION_MINOR : u32 : 0;
+O2M_VERSION_MAJOR : u32 : 1;
+O2M_VERSION_HASH : u32 : O2M_VERSION_MAJOR << 8 | O2M_VERSION_MINOR;
+
+O2M_COLOR_FLAG : u32 : 1;
+O2M_VERT_FLAG  : u32 : 2;
+O2M_NORM_FLAG  : u32 : 4;
+O2M_UV_FLAG    : u32 : 8;
+
+O2M_Header :: struct {
+    _hash: u32;
+    vc: u32;    // total count of vertices in mesh
+    ic: u32;    // index count
+    flags: u32; // flags
+    co: s64;    // color data offset (-1 if empty)
+    vo: s64;    // vertex data offset (-1 if empty)
+    no: s64;    // normal data offset (-1 if empty)
+    uvo: s64;   // uv data offset (-1 if empty)
+    io: s64;    // index data offset 
+}
+
+// Mesh data handler.
+O2M_Mesh :: *u8;

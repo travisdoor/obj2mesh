@@ -1,0 +1,118 @@
+//************************************************************************************************
+// obj2mesh
+//
+// File:   tests.bl
+// Author: Martin Dorazil
+// Date:   21/11/19
+//
+// Copyright 2019 Martin Dorazil
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//************************************************************************************************
+
+#load "obj2mesh.bl"
+#load "o2m_loader.bl"
+
+TEST_IN_FILE_NAME :: "test.obj";
+TEST_OUT_FILE_NAME :: "test.mesh";
+
+Mesh :: struct {
+    c: []v4;
+    v: []v3;
+    n: []v3;
+    uv: []v2;
+    indices: []u32;
+
+    data: O2M_Mesh;
+};
+
+mesh := {:Mesh: 0};
+e: O2M_Error = O2M_Error.NoError;
+
+#test "convert file" {
+    init();
+    success :: convert_file(TEST_IN_FILE_NAME);
+    assert(success);
+    terminate();
+}
+
+#test "load file" {
+    e = o2m_load(&mesh.data, TEST_OUT_FILE_NAME);
+    assert(e == O2M_Error.NoError);
+}
+
+#test "map data" {
+    // Color
+    e = o2m_get_elem_count(auto &mesh.c.len, mesh.data, O2M_Elem.Color);
+    assert(e == O2M_Error.NoError);
+    if mesh.c.len > 0 {
+        e = o2m_get_elem_ptr(auto &mesh.c.ptr, mesh.data, O2M_Elem.Color);
+        assert(e == O2M_Error.NoError);
+    }
+
+    // Vertex
+    e = o2m_get_elem_count(auto &mesh.v.len, mesh.data, O2M_Elem.Vertex);
+    assert(e == O2M_Error.NoError);
+    if mesh.v.len > 0 {
+        e = o2m_get_elem_ptr(auto &mesh.v.ptr, mesh.data, O2M_Elem.Vertex);
+        assert(e == O2M_Error.NoError);
+    }
+
+    // Normal
+    e = o2m_get_elem_count(auto &mesh.n.len, mesh.data, O2M_Elem.Normal);
+    assert(e == O2M_Error.NoError);
+    if mesh.n.len > 0 {
+        e = o2m_get_elem_ptr(auto &mesh.n.ptr, mesh.data, O2M_Elem.Normal);
+        assert(e == O2M_Error.NoError);
+    }
+
+    // UV
+    e = o2m_get_elem_count(auto &mesh.uv.len, mesh.data, O2M_Elem.UV);
+    assert(e == O2M_Error.NoError);
+    if mesh.uv.len > 0 {
+        e = o2m_get_elem_ptr(auto &mesh.uv.ptr, mesh.data, O2M_Elem.UV);
+        assert(e == O2M_Error.NoError);
+    }
+
+    // Indices
+    e = o2m_get_elem_count(auto &mesh.indices.len, mesh.data, O2M_Elem.Index);
+    assert(e == O2M_Error.NoError);
+    if mesh.indices.len > 0 {
+        e = o2m_get_elem_ptr(auto &mesh.indices.ptr, mesh.data, O2M_Elem.Index);
+        assert(e == O2M_Error.NoError);
+    }
+}
+
+#test "validate data" {
+    assert(mesh.c.len == 0);
+    assert(mesh.v.len > 0);
+    assert(mesh.n.len > 0);
+    assert(mesh.uv.len > 0);
+    assert(mesh.indices.len > 0);
+
+    assert(mesh.c.ptr == null);
+    assert(mesh.v.ptr != null);
+    assert(mesh.n.ptr != null);
+    assert(mesh.uv.ptr != null);
+    assert(mesh.indices.ptr != null);
+}
+
+#test "close" {
+    o2m_free(mesh.data);
+}

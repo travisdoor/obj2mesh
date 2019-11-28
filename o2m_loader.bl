@@ -1,0 +1,188 @@
+//************************************************************************************************
+// obj2mesh
+//
+// File:   o2m_loader.bl
+// Author: Martin Dorazil
+// Date:   21/11/19
+//
+// Copyright 2019 Martin Dorazil
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//************************************************************************************************
+
+#load "std/memory.bl"
+#load "std/file.bl"
+#load "std/debug.bl"
+#load "o2m_types.bl"
+#load "std/utils.bl"
+
+// Sub-element of mesh data.
+O2M_Elem :: enum u8 {
+    Color :: 0;
+    Vertex;
+    Normal;
+    UV;
+    Index;
+
+    _Count;
+}
+
+// Error codes.
+O2M_Error :: enum {
+    NoError;             // OK
+    InvalidValue;        // Invalid function input value.
+    InvalidFileSize;     // Invalid size of loaded file.
+    InvalidReadDataSize; // Invalid file read.
+    BadAlloc;            // Invalid memory allocation.
+    Incompatible;        // File was loaded with different api version then was saved.
+}
+
+// Load mesh data from file.
+// This function set 'out_mesh' to pointer to mesh data or return
+// an error. Produced mesh must be freed by 'o2m_free'.
+o2m_load :: fn (out_mesh: *O2M_Mesh, filename: string) O2M_Error {
+    if out_mesh == null { return O2M_Error.InvalidValue; }
+    ^out_mesh = null;
+
+    if filename.len == 0 { return O2M_Error.InvalidValue; }
+
+    file :: file_open(filename, FileOpenModes.Read, FileOpenModes.Binary);
+    defer file_close(file);
+
+    size :: file_get_size_bytes(file);
+    if size == 0 {
+        return O2M_Error.InvalidFileSize;
+    }
+
+    buffer :: mem_alloc(size);
+    if buffer == null {
+        return O2M_Error.BadAlloc;
+    }
+                   
+    r :: file_read_all_binary(file, buffer, size);
+    if r == 0 {
+        mem_free(buffer);
+        return O2M_Error.InvalidReadDataSize;
+    }
+
+    header :: get_header(buffer);
+    if header._hash != O2M_VERSION_HASH {
+        mem_free(buffer);
+        return O2M_Error.Incompatible;
+    }
+
+    ^out_mesh = buffer;
+    return O2M_Error.NoError;
+}
+
+// Free mesh data.
+o2m_free :: fn (mesh: O2M_Mesh) O2M_Error {
+    mem_free(mesh);
+    return O2M_Error.NoError;
+}
+
+// Get count of mesh element.
+o2m_get_elem_count :: fn (out_count: *u32, mesh: O2M_Mesh, elem: O2M_Elem) O2M_Error {
+    if mesh == null { return O2M_Error.InvalidValue; }
+    if out_count == null { return O2M_Error.InvalidValue; }
+
+    ^out_count = 0;
+
+    invalid_elem := false;
+    header :: get_header(mesh);
+    switch elem {
+        O2M_Elem.Color {
+            if is_flag_u32(header.flags, O2M_COLOR_FLAG) { ^out_count = header.vc; }
+        };
+
+        O2M_Elem.Vertex {
+            if is_flag_u32(header.flags, O2M_VERT_FLAG) { ^out_count = header.vc; }
+        };
+
+        O2M_Elem.Normal {
+            if is_flag_u32(header.flags, O2M_NORM_FLAG) { ^out_count = header.vc; }
+        };
+
+        O2M_Elem.UV {
+            if is_flag_u32(header.flags, O2M_UV_FLAG) { ^out_count = header.vc; }
+        };
+
+        O2M_Elem.Index {
+            ^out_count = header.ic;
+        };
+
+        default {
+            // INCOMPLETE: in this case compiler complains about unrechable code...
+            invalid_elem = true;
+        }
+    }
+    
+    if invalid_elem { return O2M_Error.InvalidValue; }
+    return O2M_Error.NoError;
+}
+
+// Get pointer to mesh element array in data.
+o2m_get_elem_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh, elem: O2M_Elem) O2M_Error {
+    if mesh == null { return O2M_Error.InvalidValue; }
+    if out_ptr == null { return O2M_Error.InvalidValue; }
+
+    ^out_ptr = null;
+    offset : s64 = 0;
+    e :: o2m_get_elem_data_offset(&offset, mesh, elem);
+    if e != O2M_Error.NoError {
+        return e;
+    }
+
+    ^out_ptr = ptr_shift_bytes(mesh, auto offset);
+
+    
+    return O2M_Error.NoError;
+}
+
+// Get offset of mesh element array in data.
+o2m_get_elem_data_offset :: fn (out_offset: *s64, mesh: O2M_Mesh, elem: O2M_Elem) O2M_Error {
+    if mesh == null { return O2M_Error.InvalidValue; }
+    if out_offset == null { return O2M_Error.InvalidValue; }
+
+    ^out_offset = -1;
+    invalid_elem := false;
+    header :: get_header(mesh);
+    switch elem {
+        O2M_Elem.Color { ^out_offset = header.co; };
+        O2M_Elem.Vertex { ^out_offset = header.vo; };
+        O2M_Elem.Normal { ^out_offset = header.no; };
+        O2M_Elem.UV { ^out_offset = header.uvo; };
+        O2M_Elem.Index { ^out_offset = header.io; };
+
+        default {
+            // INCOMPLETE: in this case compiler complains about unrechable code...
+            invalid_elem = true;
+        }
+    }
+    
+    if invalid_elem { return O2M_Error.InvalidValue; }
+    if ^out_offset == -1 { return O2M_Error.InvalidValue; }
+    return O2M_Error.NoError;
+}
+
+#private
+
+get_header :: fn (mesh: O2M_Mesh) *O2M_Header #inline {
+    return cast(*O2M_Header) mesh;
+}
