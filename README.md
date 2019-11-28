@@ -6,6 +6,11 @@ Simple terminal converter from 'obj' to 'mesh' format. Mesh is custom binary for
 blc obj2mesh.bl
 ```
 
+## Usage
+```bash
+./obj2mesh <obj-files>
+```
+
 ## Data representation
 * Color - stored as `v4` type.
 * Vertex - stored as `v3` type.
@@ -13,7 +18,7 @@ blc obj2mesh.bl
 * UV - stored as `v2` type.
 * Index - stored as `u32` type.
 
-## Example
+## API Load example
 ```
 #load "std/print.bl"
 #load "o2m_loader.bl"
