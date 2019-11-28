@@ -19,8 +19,8 @@ blc obj2mesh.bl
 #load "o2m_loader.bl"
 
 MyMesh :: struct {
-	v: []v3;
-	data: O2M_Mesh;
+    v: []v3;
+    data: O2M_Mesh;
 }
 
 mesh := {:MyMesh: 0};
