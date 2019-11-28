@@ -26,25 +26,25 @@ MyMesh :: struct {
 mesh := {:MyMesh: 0};
 
 main :: fn () {
-	// Load 'model.mesh' from file.
+    // Load 'model.mesh' from file.
     e := o2m_load(&mesh.data, "model.mesh");
     if (e != O2M_Error.NoError) { panic(); }
-
-	// Free loaded data.
-	defer o2m_free(mesh.data);
-	
-	// Map vertex data to 'mesh.v'.
+    
+    // Free loaded data.
+    defer o2m_free(mesh.data);
+    
+    // Map vertex data to 'mesh.v'.
     e = o2m_get_elem_count(auto &mesh.v.len, mesh.data, O2M_Elem.Vertex);
     if (e != O2M_Error.NoError) { panic(); }
-
+    
     if mesh.v.len > 0 {
         e = o2m_get_elem_ptr(auto &mesh.v.ptr, mesh.data, O2M_Elem.Vertex);
-		if (e != O2M_Error.NoError) { panic(); }
+        if (e != O2M_Error.NoError) { panic(); }
     }
-
-	loop i := 0; i < mesh.v.len; i += 1 {
-		print("%", mesh.v[i]);
-	}
+    
+    loop i := 0; i < mesh.v.len; i += 1 {
+        print("%", mesh.v[i]);
+    }
 }
 ```
 
