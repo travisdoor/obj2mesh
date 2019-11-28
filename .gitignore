@@ -2,3 +2,4 @@
 *.swp
 *.mesh
 /obj2mesh
+*.DS_Store
