@@ -1,5 +1,5 @@
 # obj2mesh
-Simple terminal converter from 'obj' to 'mesh' format. Mesh is custom binary format designed for easy use with OpenGL API and loaded content could be directly passed to GPU VRAM.
+Simple terminal converter from 'obj' to 'mesh' format. Mesh is custom binary format designed for easy use with OpenGL API, loaded content could be directly passed to GPU VRAM.
 
 ## Compilation
 ```bash
