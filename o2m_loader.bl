@@ -50,6 +50,7 @@ O2M_Error :: enum {
     InvalidFileSize;     // Invalid size of loaded file.
     InvalidReadDataSize; // Invalid file read.
     BadAlloc;            // Invalid memory allocation.
+    Incompatible;        // File was loaded with different api version then was saved.
 }
 
 // Load mesh data from file.
@@ -78,6 +79,12 @@ o2m_load :: fn (out_mesh: *O2M_Mesh, filename: string) O2M_Error {
     if r == 0 {
         mem_free(buffer);
         return O2M_Error.InvalidReadDataSize;
+    }
+
+    header :: get_header(buffer);
+    if header._hash != O2M_VERSION_HASH {
+        mem_free(buffer);
+        return O2M_Error.Incompatible;
     }
 
     ^out_mesh = buffer;

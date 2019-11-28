@@ -49,11 +49,46 @@ tmp_uv    : *Array = null;
 
 current_line := 0;
 
-main :: fn () s32 {
-    in_file :: "test.obj";
+main :: fn (args: []*u8) s32 {
     init();
-    convert_file(in_file);
-    terminate();
+    defer terminate();
+
+    print("\n");
+    print("********************************************************************************\n");
+    print(" OBJ to MESH Converter\n");
+    print(" Author: Martin Dorazil\n");
+    print(" Version: %.%.% (%)\n",
+         O2M_VERSION_MAJOR, O2M_VERSION_MINOR, O2M_VERSION_PATCH, O2M_VERSION_HASH);
+    print("********************************************************************************\n");
+
+    if args.len == 1 {
+        print_err("No input files!");
+        return 1;
+    }
+
+    ok := 0;
+    invalid := 0;
+
+    loop i := 1; i < args.len; i += 1 {
+        arg :: args[i];
+        if arg == null { continue; }
+
+        in_file :: {:string: auto strlen(arg), arg};
+        if in_file.len == 0 { continue; }
+        
+        if (convert_file(in_file)) {
+            ok += 1;
+        } else {
+            invalid += 1;
+        }
+    }
+
+    if invalid == 0 {
+        print("Converted % files without errors.\n\n", ok);
+    } else {
+        print("Converted % files % with errors.\n\n", ok + invalid, invalid);
+    }
+
     return 0;
 }
 
@@ -90,7 +125,7 @@ convert_file :: fn (in_file: string) bool {
 
     print("Converting '%'.\n", in_file);
     if !load_obj(in_file) {
-        print_err("There were errors during processing file '%'.\n", in_file);
+        print_err("There were errors during processing file '%'.\n\n", in_file);
         return false;
     }
 
@@ -105,6 +140,7 @@ convert_file :: fn (in_file: string) bool {
     defer mem_free(buffer);
 
     header := cast(*O2M_Header) buffer;
+    header._hash = O2M_VERSION_HASH;
     header.vc = auto vert.len;
     header.ic = auto indices.len;
     header.flags = 0;
@@ -171,6 +207,7 @@ load_obj :: fn (filename: string) bool {
     array_clear(vert);
     array_clear(norm);
     array_clear(uv);
+    array_clear(indices);
     array_clear(tmp_color);
     array_clear(tmp_vert);
     array_clear(tmp_norm);
@@ -230,7 +267,6 @@ load_obj :: fn (filename: string) bool {
         consume_line(&dup);
     }
 
-    print("vc: %, nc: %, uvc: %; i: %\n", vert.len, norm.len, uv.len, indices.len);
     return true;
 }
 
