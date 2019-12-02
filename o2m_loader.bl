@@ -46,6 +46,7 @@ O2M_Elem :: enum u8 {
 // Error codes.
 O2M_Error :: enum {
     NoError;             // OK
+    FileNotFound;        // File not found. 
     InvalidValue;        // Invalid function input value.
     InvalidFileSize;     // Invalid size of loaded file.
     InvalidReadDataSize; // Invalid file read.
@@ -65,6 +66,8 @@ o2m_load :: fn (out_mesh: *O2M_Mesh, filename: string) O2M_Error {
     file :: file_open(filename, FileOpenModes.Read, FileOpenModes.Binary);
     defer file_close(file);
 
+    if file == null { return O2M_Error.FileNotFound; }
+    
     size :: file_get_size_bytes(file);
     if size == 0 {
         return O2M_Error.InvalidFileSize;
