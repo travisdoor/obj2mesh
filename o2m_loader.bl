@@ -63,7 +63,7 @@ o2m_load :: fn (out_mesh: *O2M_Mesh, filename: string) O2M_Error {
 
     if filename.len == 0 { return O2M_Error.InvalidValue; }
 
-    file :: file_open(filename, FileOpenModes.Read, FileOpenModes.Binary);
+    file :: file_open(filename, FileOpenMode.Read, FileOpenMode.Binary);
     defer file_close(file);
 
     if file == null { return O2M_Error.FileNotFound; }
