@@ -313,8 +313,15 @@ consume_face :: fn (s: *string) bool {
 }
 
 consume_face_elem :: fn (s: *string) bool {
+    Vertex :: struct {
+        c: *v4;
+        v: *v3;
+        n: *v3;
+        uv: *v2;
+    };
+    
+    tmp := {:Vertex: 0};
     group := 0; // 0 - vertex, 1 - UV, 2 - normal
-    index : u32 = 0;
     loop s.len > 0 {
         c :: (^s)[0];
         if c == '\n' { break; }
@@ -340,11 +347,8 @@ consume_face_elem :: fn (s: *string) bool {
                 return false;
             }
 
-            v :: cast(*v3) array_at(tmp_vert, auto i);
-            if v == null { panic(); }
-            
-            index = auto vert.len;
-            array_push(vert, ^v);
+            tmp.v = cast(*v3) array_at(tmp_vert, auto i);
+            if tmp.v == null { panic(); }
         } else if group == 1 {
             // UV
             if i >= auto tmp_uv.len {
@@ -352,11 +356,8 @@ consume_face_elem :: fn (s: *string) bool {
                 return false;
             }
 
-            v :: cast(*v2) array_at(tmp_uv, auto i);
-            if v == null { panic(); }
-            
-            index = auto uv.len;
-            array_push(uv, ^v);
+            tmp.uv = cast(*v2) array_at(tmp_uv, auto i);
+            if tmp.uv == null { panic(); }
         } else if group == 2 {
             // normal
             if i >= auto tmp_norm.len {
@@ -364,11 +365,8 @@ consume_face_elem :: fn (s: *string) bool {
                 return false;
             }
 
-            v :: cast(*v3) array_at(tmp_norm, auto i);
-            if v == null { panic(); }
-            
-            index = auto norm.len;
-            array_push(norm, ^v);
+            tmp.n = cast(*v3) array_at(tmp_norm, auto i);
+            if tmp.n == null { panic(); }
         } else {
             print_err("%: Unexpected face group member!", current_line);
             return false;
@@ -377,9 +375,35 @@ consume_face_elem :: fn (s: *string) bool {
         group += 1;
     }
 
-    array_push(indices, index);
+    // try to reuse same vertex
+    push_vertex :: fn (v: *Vertex) #inline {
+        index :: cast(u32) vert.len;
+        if v.c != null  { array_push(color, ^v.c); }
+        if v.v != null  { array_push(vert,  ^v.v); }
+        if v.n != null  { array_push(norm,  ^v.n); }
+        if v.uv != null { array_push(uv,    ^v.uv); }
 
-    sum :: vert.len + norm.len + uv.len + indices.len; 
+        array_push(indices, index);
+    };
+    
+    index := -1;
+    tmp_v :: ^tmp.v;
+
+    loop i := 0; i < vert.len; i += 1 {
+        v :: ^ cast(*v3) array_at(vert, i);
+        if v3_compare(v, tmp_v, 0.00000000001f) {
+            index = i;
+            break;
+        }
+    }
+
+    if index == -1 {
+        push_vertex(&tmp);
+    } else {
+        array_push(indices, cast(u32) index);
+    }
+
+    sum :: vert.len + norm.len + uv.len; 
     if sum % vert.len != 0 {
         print_err("%: Triangle data malformed!", current_line);
         return false;
