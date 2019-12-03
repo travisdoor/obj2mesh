@@ -391,7 +391,7 @@ consume_face_elem :: fn (s: *string) bool {
 
     loop i := 0; i < vert.len; i += 1 {
         v :: ^ cast(*v3) array_at(vert, i);
-        if v3_compare(v, tmp_v, 0.00000000001f) {
+        if v3_compare(v, tmp_v, 0.00001f) {
             index = i;
             break;
         }
