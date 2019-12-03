@@ -49,7 +49,7 @@ tmp_uv    : *Array = null;
 
 current_line := 0;
 
-main :: fn (args: []*u8) s32 {
+main :: fn () s32 {
     init();
     defer terminate();
 
@@ -61,7 +61,7 @@ main :: fn (args: []*u8) s32 {
          O2M_VERSION_MAJOR, O2M_VERSION_MINOR, O2M_VERSION_PATCH, O2M_VERSION_HASH);
     print("********************************************************************************\n");
 
-    if args.len == 1 {
+    if command_line_arguments.len == 1 {
         print_err("No input files!");
         return 1;
     }
@@ -69,11 +69,8 @@ main :: fn (args: []*u8) s32 {
     ok := 0;
     invalid := 0;
 
-    loop i := 1; i < args.len; i += 1 {
-        arg :: args[i];
-        if arg == null { continue; }
-
-        in_file :: {:string: auto strlen(arg), arg};
+    loop i := 1; i < command_line_arguments.len; i += 1 {
+        in_file :: command_line_arguments[i];
         if in_file.len == 0 { continue; }
         
         if (convert_file(in_file)) {
@@ -192,7 +189,7 @@ convert_file :: fn (in_file: string) bool {
     }
 
     // write to the file
-    file :: file_open(out_file, FileOpenModes.Write, FileOpenModes.Binary);
+    file :: file_open(out_file, FileOpenMode.Write, FileOpenMode.Binary);
     defer file_close(file);
 
     w :: file_write_binary(file, auto buffer, buffer_size);
@@ -213,7 +210,7 @@ load_obj :: fn (filename: string) bool {
     array_clear(tmp_norm);
     array_clear(tmp_uv);
 
-    file :: file_open(filename, FileOpenModes.Read);
+    file :: file_open(filename, FileOpenMode.Read);
     defer file_close(file);
 
     if file == null {
@@ -300,6 +297,22 @@ consume_n :: fn (s: *string, n: s32) #inline {
 }
 
 consume_face :: fn (s: *string) bool {
+    loop s.len > 0 {
+        c :: (^s)[0];
+        if c == '\n' { break; }
+        if c == '\0' { break; }
+        if c == ' ' { 
+            consume_char(s);
+            continue;
+        }
+
+        if !consume_face_elem(s) { return false; }
+    }
+
+    return true;
+}
+
+consume_face_elem :: fn (s: *string) bool {
     group := 0; // 0 - vertex, 1 - UV, 2 - normal
     index : u32 = 0;
     loop s.len > 0 {
