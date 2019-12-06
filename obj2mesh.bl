@@ -174,10 +174,6 @@ convert_file :: fn (in_file: string) bool {
         mem_copy(ptr, uv.ptr, size_bytes);
         header.uvo = ptr_diff(ptr, buffer);
         ptr = ptr_shift_bytes(ptr, size_bytes);
-
-        loop i := 0; i < uv.len; i += 1{
-            print_log("UV = %", ^ cast(*v2) array_at(uv, i));
-        }
     }
 
     {
