@@ -111,19 +111,19 @@ o2m_get_elem_count :: fn (out_count: *u32, mesh: O2M_Mesh, elem: O2M_Elem) O2M_E
     header :: get_header(mesh);
     switch elem {
         O2M_Elem.Color {
-            if is_flag_u32(header.flags, O2M_COLOR_FLAG) { ^out_count = header.vc; }
+            if header.co != -1 { ^out_count = header.vc; }
         };
 
         O2M_Elem.Vertex {
-            if is_flag_u32(header.flags, O2M_VERT_FLAG) { ^out_count = header.vc; }
+            if header.vo != -1 { ^out_count = header.vc; }
         };
 
         O2M_Elem.Normal {
-            if is_flag_u32(header.flags, O2M_NORM_FLAG) { ^out_count = header.vc; }
+            if header.no != -1 { ^out_count = header.vc; }
         };
 
         O2M_Elem.UV {
-            if is_flag_u32(header.flags, O2M_UV_FLAG) { ^out_count = header.vc; }
+            if header.uvo != -1 { ^out_count = header.vc; }
         };
 
         O2M_Elem.Index {

@@ -140,17 +140,12 @@ convert_file :: fn (in_file: string) bool {
     header._hash = O2M_VERSION_HASH;
     header.vc = auto vert.len;
     header.ic = auto indices.len;
-    header.flags = 0;
-    if color.len > 0 { header.flags = header.flags | O2M_COLOR_FLAG; }
-    if vert.len > 0 { header.flags = header.flags | O2M_VERT_FLAG; }
-    if norm.len > 0 { header.flags = header.flags | O2M_NORM_FLAG; }
-    if uv.len > 0 { header.flags = header.flags | O2M_UV_FLAG; }
 
     // build content
     ptr := ptr_shift_bytes(buffer, sizeof(O2M_Header));
 
     header.co = -1;
-    if is_flag_u32(header.flags, O2M_COLOR_FLAG) {
+    if color.len > 0 {
         size_bytes :: (cast(usize) color.len) * sizeof(v4);
         mem_copy(ptr, color.ptr, size_bytes);
         header.co = ptr_diff(ptr, buffer);
@@ -158,7 +153,7 @@ convert_file :: fn (in_file: string) bool {
     }
 
     header.vo = -1;
-    if is_flag_u32(header.flags, O2M_VERT_FLAG) {
+    if vert.len > 0 {
         size_bytes :: (cast(usize) vert.len) * sizeof(v3);
         mem_copy(ptr, vert.ptr, size_bytes);
         header.vo = ptr_diff(ptr, buffer);
@@ -166,7 +161,7 @@ convert_file :: fn (in_file: string) bool {
     }
 
     header.no = -1;
-    if is_flag_u32(header.flags, O2M_NORM_FLAG) {
+    if norm.len > 0 {
         size_bytes :: (cast(usize) norm.len) * sizeof(v3);
         mem_copy(ptr, norm.ptr, size_bytes);
         header.no = ptr_diff(ptr, buffer);
@@ -174,11 +169,15 @@ convert_file :: fn (in_file: string) bool {
     }
 
     header.uvo = -1;
-    if is_flag_u32(header.flags, O2M_UV_FLAG) {
+    if uv.len > 0 {
         size_bytes :: (cast(usize) uv.len) * sizeof(v2);
         mem_copy(ptr, uv.ptr, size_bytes);
         header.uvo = ptr_diff(ptr, buffer);
         ptr = ptr_shift_bytes(ptr, size_bytes);
+
+        loop i := 0; i < uv.len; i += 1{
+            print_log("UV = %", ^ cast(*v2) array_at(uv, i));
+        }
     }
 
     {
@@ -385,13 +384,30 @@ consume_face_elem :: fn (s: *string) bool {
 
         array_push(indices, index);
     };
+
+    compare_vertex :: fn (v1: *Vertex, v2: *Vertex) bool {
+        if v1.v != null && v2.v != null && !v3_compare(^v1.v, ^v2.v, 0.00001f) { return false; }
+        if v1.n != null && v2.n != null && !v3_compare(^v1.n, ^v2.n, 0.00001f) { return false; }
+        if v1.uv != null && v2.uv != null && !v2_compare(^v1.uv, ^v2.uv, 0.00001f) { return false; }
+        return false;
+    };
     
     index := -1;
     tmp_v :: ^tmp.v;
 
     loop i := 0; i < vert.len; i += 1 {
-        v :: ^ cast(*v3) array_at(vert, i);
-        if v3_compare(v, tmp_v, 0.00001f) {
+        tmp2 := {:Vertex: 0};
+        tmp2.v = cast(*v3) array_at(vert, i);
+
+        if norm.len > 0 {
+            tmp2.n = cast(*v3) array_at(norm, i);
+        }
+
+        if uv.len > 0 {
+            tmp2.uv = cast(*v2) array_at(uv, i);
+        }
+
+        if compare_vertex(&tmp, &tmp2) {
             index = i;
             break;
         }

@@ -31,11 +31,6 @@ O2M_VERSION_MINOR : u32 : 0;
 O2M_VERSION_MAJOR : u32 : 1;
 O2M_VERSION_HASH : u32 : O2M_VERSION_MAJOR << 8 | O2M_VERSION_MINOR;
 
-O2M_COLOR_FLAG : u32 : 1;
-O2M_VERT_FLAG  : u32 : 2;
-O2M_NORM_FLAG  : u32 : 4;
-O2M_UV_FLAG    : u32 : 8;
-
 O2M_Header :: struct {
     _hash: u32;
     vc: u32;    // total count of vertices in mesh
