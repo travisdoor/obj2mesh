@@ -126,21 +126,24 @@ convert_file :: fn (in_file: string) bool {
         return false;
     }
 
-    data_size :: 
+    v_bytes :: 
         (cast(usize) color.len) * sizeof(v4) +
         (cast(usize) vert.len) * sizeof(v3) +
         (cast(usize) norm.len) * sizeof(v3) +
-        (cast(usize) uv.len) * sizeof(v2) +
+        (cast(usize) uv.len) * sizeof(v2);
+
+    i_bytes ::
         (cast(usize) indices.len) * sizeof(u32);
 
-    buffer_size :: sizeof(O2M_Header) + data_size;
+    buffer_size :: sizeof(O2M_Header) + v_bytes + i_bytes;
 
     buffer := mem_alloc(buffer_size); 
     defer mem_free(buffer);
 
     header := cast(*O2M_Header) buffer;
     header._hash = O2M_VERSION_HASH;
-    header.data_size = data_size;
+    header.v_bytes = v_bytes;
+    header.i_bytes = i_bytes;
     header.vc = auto vert.len;
     header.ic = auto indices.len;
 

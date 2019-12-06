@@ -140,12 +140,12 @@ o2m_get_elem_count :: fn (out_count: *u32, mesh: O2M_Mesh, elem: O2M_Elem) O2M_E
     return O2M_Error.NoError;
 }
 
-o2m_get_data_size :: fn (out_size: *usize, mesh: O2M_Mesh) O2M_Error {
-    if out_size == null { return O2M_Error.InvalidValue; }
+o2m_get_data_sizes :: fn (out_v_bytes: *usize, out_i_bytes: *usize, mesh: O2M_Mesh) O2M_Error {
     if mesh == null { return O2M_Error.InvalidValue; }
 
     header :: get_header(mesh);
-    ^out_size = header.data_size;
+    if out_v_bytes != null { ^out_v_bytes = header.v_bytes; }
+    if out_i_bytes != null { ^out_i_bytes = header.i_bytes; }
 
     return O2M_Error.NoError;
 }
