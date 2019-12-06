@@ -140,6 +140,16 @@ o2m_get_elem_count :: fn (out_count: *u32, mesh: O2M_Mesh, elem: O2M_Elem) O2M_E
     return O2M_Error.NoError;
 }
 
+o2m_get_data_size :: fn (out_size: *usize, mesh: O2M_Mesh) O2M_Error {
+    if out_size == null { return O2M_Error.InvalidValue; }
+    if mesh == null { return O2M_Error.InvalidValue; }
+
+    header :: get_header(mesh);
+    ^out_size = header.data_size;
+
+    return O2M_Error.NoError;
+}
+
 // Get pointer to raw geometry data.
 o2m_get_data_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh) O2M_Error {
     if out_ptr == null { return O2M_Error.InvalidValue; }

@@ -27,7 +27,7 @@
 //************************************************************************************************
 
 O2M_VERSION_PATCH : u32 : 0;
-O2M_VERSION_MINOR : u32 : 0;
+O2M_VERSION_MINOR : u32 : 1;
 O2M_VERSION_MAJOR : u32 : 1;
 O2M_VERSION_HASH : u32 : O2M_VERSION_MAJOR << 8 | O2M_VERSION_MINOR;
 
@@ -35,12 +35,12 @@ O2M_Header :: struct {
     _hash: u32;
     vc: u32;    // total count of vertices in mesh
     ic: u32;    // index count
-    flags: u32; // flags
     co: s64;    // color data offset (-1 if empty)
     vo: s64;    // vertex data offset (-1 if empty)
     no: s64;    // normal data offset (-1 if empty)
     uvo: s64;   // uv data offset (-1 if empty)
     io: s64;    // index data offset 
+    data_size: usize; 
 }
 
 // Mesh data handler.

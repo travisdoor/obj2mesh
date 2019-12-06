@@ -126,18 +126,21 @@ convert_file :: fn (in_file: string) bool {
         return false;
     }
 
-    buffer_size :: sizeof(O2M_Header) +
+    data_size :: 
         (cast(usize) color.len) * sizeof(v4) +
         (cast(usize) vert.len) * sizeof(v3) +
         (cast(usize) norm.len) * sizeof(v3) +
         (cast(usize) uv.len) * sizeof(v2) +
         (cast(usize) indices.len) * sizeof(u32);
 
+    buffer_size :: sizeof(O2M_Header) + data_size;
+
     buffer := mem_alloc(buffer_size); 
     defer mem_free(buffer);
 
     header := cast(*O2M_Header) buffer;
     header._hash = O2M_VERSION_HASH;
+    header.data_size = data_size;
     header.vc = auto vert.len;
     header.ic = auto indices.len;
 
@@ -386,7 +389,7 @@ consume_face_elem :: fn (s: *string) bool {
         if v1.v != null && v2.v != null && !v3_compare(^v1.v, ^v2.v, 0.00001f) { return false; }
         if v1.n != null && v2.n != null && !v3_compare(^v1.n, ^v2.n, 0.00001f) { return false; }
         if v1.uv != null && v2.uv != null && !v2_compare(^v1.uv, ^v2.uv, 0.00001f) { return false; }
-        return false;
+        return true;
     };
     
     index := -1;
