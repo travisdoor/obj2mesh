@@ -140,6 +140,16 @@ o2m_get_elem_count :: fn (out_count: *u32, mesh: O2M_Mesh, elem: O2M_Elem) O2M_E
     return O2M_Error.NoError;
 }
 
+// Get pointer to raw geometry data.
+o2m_get_data_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh) O2M_Error {
+    if out_ptr == null { return O2M_Error.InvalidValue; }
+    if mesh == null { return O2M_Error.InvalidValue; }
+
+    ^out_ptr = ptr_shift_bytes(mesh, sizeof(O2M_Header));
+    
+    return O2M_Error.NoError;
+}
+
 // Get pointer to mesh element array in data.
 o2m_get_elem_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh, elem: O2M_Elem) O2M_Error {
     if mesh == null { return O2M_Error.InvalidValue; }
@@ -147,12 +157,19 @@ o2m_get_elem_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh, elem: O2M_Elem) O2M_Error
 
     ^out_ptr = null;
     offset : s64 = 0;
-    e :: o2m_get_elem_data_offset(&offset, mesh, elem);
+    data_begin_ptr: *u8;
+
+    e := o2m_get_data_ptr(&data_begin_ptr, mesh);
+    if e != O2M_Error.NoError {
+        return e;
+    }
+    
+    e = o2m_get_elem_data_offset(&offset, mesh, elem);
     if e != O2M_Error.NoError {
         return e;
     }
 
-    ^out_ptr = ptr_shift_bytes(mesh, auto offset);
+    ^out_ptr = ptr_shift_bytes(data_begin_ptr, auto offset);
 
     
     return O2M_Error.NoError;

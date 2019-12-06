@@ -143,12 +143,13 @@ convert_file :: fn (in_file: string) bool {
 
     // build content
     ptr := ptr_shift_bytes(buffer, sizeof(O2M_Header));
+    data_begin_ptr :: ptr;
 
     header.co = -1;
     if color.len > 0 {
         size_bytes :: (cast(usize) color.len) * sizeof(v4);
         mem_copy(ptr, color.ptr, size_bytes);
-        header.co = ptr_diff(ptr, buffer);
+        header.co = ptr_diff(ptr, data_begin_ptr);
         ptr = ptr_shift_bytes(ptr, size_bytes);
     }
 
@@ -156,7 +157,7 @@ convert_file :: fn (in_file: string) bool {
     if vert.len > 0 {
         size_bytes :: (cast(usize) vert.len) * sizeof(v3);
         mem_copy(ptr, vert.ptr, size_bytes);
-        header.vo = ptr_diff(ptr, buffer);
+        header.vo = ptr_diff(ptr, data_begin_ptr);
         ptr = ptr_shift_bytes(ptr, size_bytes);
     }
 
@@ -164,7 +165,7 @@ convert_file :: fn (in_file: string) bool {
     if norm.len > 0 {
         size_bytes :: (cast(usize) norm.len) * sizeof(v3);
         mem_copy(ptr, norm.ptr, size_bytes);
-        header.no = ptr_diff(ptr, buffer);
+        header.no = ptr_diff(ptr, data_begin_ptr);
         ptr = ptr_shift_bytes(ptr, size_bytes);
     }
 
@@ -172,7 +173,7 @@ convert_file :: fn (in_file: string) bool {
     if uv.len > 0 {
         size_bytes :: (cast(usize) uv.len) * sizeof(v2);
         mem_copy(ptr, uv.ptr, size_bytes);
-        header.uvo = ptr_diff(ptr, buffer);
+        header.uvo = ptr_diff(ptr, data_begin_ptr);
         ptr = ptr_shift_bytes(ptr, size_bytes);
     }
 
@@ -180,7 +181,7 @@ convert_file :: fn (in_file: string) bool {
         if indices.len <= 0 { panic("Invalid indices!"); }
         size_bytes :: (cast(usize) indices.len) * sizeof(u32);
         mem_copy(ptr, indices.ptr, size_bytes);
-        header.io = ptr_diff(ptr, buffer);
+        header.io = ptr_diff(ptr, data_begin_ptr);
     }
 
     // write to the file
