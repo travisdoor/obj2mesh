@@ -155,7 +155,7 @@ o2m_get_data_ptr :: fn (out_ptr: **u8, mesh: O2M_Mesh) O2M_Error {
     if out_ptr == null { return O2M_Error.InvalidValue; }
     if mesh == null { return O2M_Error.InvalidValue; }
 
-    ^out_ptr = ptr_shift_bytes(mesh, sizeof(O2M_Header));
+    ^out_ptr = ptr_shift_bytes(mesh, auto sizeof(O2M_Header));
     
     return O2M_Error.NoError;
 }
