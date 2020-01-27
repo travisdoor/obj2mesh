@@ -1,0 +1,4 @@
+build :: fn () #build_entry {
+    exe :: add_executable("obj2mesh");
+    add_unit(exe, "obj2mesh.bl");
+}
